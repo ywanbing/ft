@@ -56,6 +56,8 @@ func tcpPipe(c *Client, dir string) {
 		defer func() {
 			Save = false
 		}()
+		header := make([]byte, 4)
+		buf := make([]byte, 64*1024)
 		for {
 			var err error
 			// long read deadline in case waiting for file
@@ -65,7 +67,6 @@ func tcpPipe(c *Client, dir string) {
 			// must clear the timeout setting
 			defer c.c.SetDeadline(time.Time{})
 			// read until we get 4 bytes for the magic
-			header := make([]byte, 4)
 			_, err = io.ReadFull(c.c, header)
 			if err != nil {
 				fmt.Printf("initial read error: %v \n", err)
@@ -76,7 +77,6 @@ func tcpPipe(c *Client, dir string) {
 				return
 			}
 			// read until we get 4 bytes for the header
-			header = make([]byte, 4)
 			_, err = io.ReadFull(c.c, header)
 			if err != nil {
 				fmt.Printf("initial read error: %v \n", err)
@@ -87,13 +87,12 @@ func tcpPipe(c *Client, dir string) {
 			if err := c.c.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
 				fmt.Printf("error setting read deadline: %v \n", err)
 			}
-			buf := make([]byte, numBytesUint32)
-			_, err = io.ReadFull(c.c, buf)
+			n, err := io.ReadFull(c.c, buf[:numBytesUint32])
 			if err != nil {
 				fmt.Printf("consecutive read error: %v \n", err)
 				return
 			}
-			m, err := Decode(buf)
+			m, err := Decode(buf[:n])
 			if err != nil {
 				fmt.Printf("read message error: %v \n", err)
 				return
@@ -213,7 +212,7 @@ func StartClient(addr string, fileName string) (err error) {
 
 	readBuf := make([]byte, 60*1024)
 	// 重新初始化
-	data = make([]byte, 1*1024*1024)
+	data = make([]byte, 64*1024)
 	for {
 		n, err := file.Read(readBuf)
 		if err != nil && n == 0 {
@@ -229,7 +228,7 @@ func StartClient(addr string, fileName string) (err error) {
 		if err != nil {
 			break
 		}
-		readBuf := make([]byte, 1024)
+		readBuf := make([]byte, 20)
 		n, err = c.c.Read(readBuf)
 		if err != nil {
 			break
