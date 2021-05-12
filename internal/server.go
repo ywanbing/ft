@@ -212,7 +212,7 @@ func StartClient(addr string, fileName string) (err error) {
 
 	readBuf := make([]byte, 60*1024)
 	// 重新初始化
-	data = make([]byte, 64*1024)
+	data = make([]byte, 1024*1024)
 	for {
 		n, err := file.Read(readBuf)
 		if err != nil && n == 0 {
