@@ -138,7 +138,6 @@ func tcpPipe(c *Client, dir string) {
 				fmt.Println("file.Write err =", err)
 				return
 			}
-			_, _ = c.c.Write([]byte("ok"))
 		case MsgEnd:
 			// 操作完成
 			info, _ := fs.Stat()
@@ -227,14 +226,6 @@ func StartClient(addr string, fileName string) (err error) {
 		_, err = c.c.Write(data[:8+len(buf)])
 		if err != nil {
 			break
-		}
-		readBuf := make([]byte, 20)
-		n, err = c.c.Read(readBuf)
-		if err != nil {
-			break
-		}
-		if string(readBuf[:n]) != "ok" {
-			return fmt.Errorf("send err")
 		}
 	}
 
