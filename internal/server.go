@@ -57,7 +57,7 @@ func tcpPipe(c *Client, dir string) {
 			Save = false
 		}()
 		header := make([]byte, 4)
-		buf := make([]byte, 64*1024)
+		buf := make([]byte, 1024*1024)
 		for {
 			var err error
 			// long read deadline in case waiting for file
