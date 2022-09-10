@@ -20,13 +20,13 @@ const (
 )
 
 func StartServer(addr string, dir string) {
-	//通过ResolveTCPAddr实例一个具体的tcp断点
+	// 通过ResolveTCPAddr实例一个具体的tcp断点
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", addr)
-	//打开一个tcp断点监听
+	// 打开一个tcp断点监听
 	tcpListener, _ := net.ListenTCP("tcp", tcpAddr)
 	defer tcpListener.Close()
 	fmt.Println("Server ready to read ...")
-	//循环接收客户端的连接，创建一个协程具体去处理连接
+	// 循环接收客户端的连接，创建一个协程具体去处理连接
 	for {
 		tcpConn, err := tcpListener.AcceptTCP()
 		if err != nil {
@@ -39,9 +39,9 @@ func StartServer(addr string, dir string) {
 	}
 }
 
-//具体处理连接过程方法
+// 具体处理连接过程方法
 func tcpPipe(c *Client, dir string) {
-	//tcp连接的地址
+	// tcp连接的地址
 	ipStr := c.c.RemoteAddr().String()
 
 	defer func() {
@@ -153,7 +153,7 @@ func tcpPipe(c *Client, dir string) {
 	}
 }
 
-//PathExists 判断文件夹是否存在
+// PathExists 判断文件夹是否存在
 func PathExists(path string) bool {
 	_, err := os.Stat(path)
 	if err != nil && os.IsNotExist(err) {
@@ -163,9 +163,9 @@ func PathExists(path string) bool {
 }
 
 func StartClient(addr string, fileName string) (err error) {
-	//通过ResolveTCPAddr实例一个具体的tcp断点
+	// 通过ResolveTCPAddr实例一个具体的tcp断点
 	tcpAddr, _ := net.ResolveTCPAddr("tcp", addr)
-	//打开一个tcp断点监听
+	// 打开一个tcp断点监听
 	tcpListener, _ := net.DialTCP("tcp", nil, tcpAddr)
 	defer tcpListener.Close()
 

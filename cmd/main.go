@@ -1,11 +1,12 @@
-package main
+package cmd
 
 import (
 	"flag"
 	"fmt"
-	"github.com/ywanbing/ft/internal"
 	"os"
 	"path"
+
+	"github.com/ywanbing/ft/internal"
 )
 
 var help = `
