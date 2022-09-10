@@ -12,7 +12,7 @@ import (
 )
 
 type TcpCon struct {
-	*net.TCPConn
+	conn *net.TCPConn
 
 	recv chan *msg.Message
 	send chan *msg.Message
@@ -22,9 +22,9 @@ type TcpCon struct {
 
 func NewTcp(conn *net.TCPConn) *TcpCon {
 	return &TcpCon{
-		TCPConn: conn,
-		recv:    make(chan *msg.Message, 1024),
-		send:    make(chan *msg.Message, 1024),
+		conn: conn,
+		recv: make(chan *msg.Message, 1024),
+		send: make(chan *msg.Message, 1024),
 	}
 }
 
@@ -34,6 +34,8 @@ func (t *TcpCon) HandlerLoop() {
 }
 
 func (t *TcpCon) sendMsg() {
+	defer t.conn.Close()
+
 	var err error
 	defer func() {
 		if err != nil {
@@ -57,7 +59,7 @@ func (t *TcpCon) sendMsg() {
 			binary.BigEndian.PutUint32(buf[4:8], uint32(dataLen))
 			copy(buf[8:], []byte(data))
 
-			_, err = t.Write(buf[:len(MAGIC_BYTES)+4+dataLen])
+			_, err = t.conn.Write(buf[:len(MAGIC_BYTES)+4+dataLen])
 			if err != nil {
 				return
 			}
@@ -68,7 +70,7 @@ func (t *TcpCon) sendMsg() {
 }
 
 func (t *TcpCon) readMsg() {
-	defer t.Close()
+	defer t.conn.Close()
 
 	var err error
 	defer func() {
@@ -82,7 +84,7 @@ func (t *TcpCon) readMsg() {
 
 	for {
 		// read until we get 4 bytes for the magic
-		_, err = io.ReadFull(t.TCPConn, header)
+		_, err = io.ReadFull(t.conn, header)
 		if err != nil {
 			err = fmt.Errorf("initial read error: %v \n", err)
 			return
@@ -94,7 +96,7 @@ func (t *TcpCon) readMsg() {
 		}
 
 		// read until we get 4 bytes for the header
-		_, err = io.ReadFull(t.TCPConn, header)
+		_, err = io.ReadFull(t.conn, header)
 		if err != nil {
 			err = fmt.Errorf("initial read error: %v \n", err)
 			return
@@ -107,7 +109,7 @@ func (t *TcpCon) readMsg() {
 		var n int
 		var m *msg.Message
 
-		n, err = io.ReadFull(t.TCPConn, buf[:msgSize])
+		n, err = io.ReadFull(t.conn, buf[:msgSize])
 		if err != nil {
 			err = fmt.Errorf("initial read error: %v \n", err)
 			return
@@ -137,3 +139,10 @@ func (t *TcpCon) GetMsg() (*msg.Message, bool) {
 func (t *TcpCon) SendMsg(m *msg.Message) {
 	t.send <- m
 }
+
+func (t *TcpCon) Close() error {
+	t.stop = true
+	return nil
+}
+
+var _ = NetConn(&TcpCon{})

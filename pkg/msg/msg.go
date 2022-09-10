@@ -13,7 +13,15 @@ const (
 	MsgHead
 	MsgFile
 	MsgEnd
+	MsgNotify
 	MsgClose
+)
+
+type Status byte
+
+const (
+	Status_Ok Status = iota
+	Status_Err
 )
 
 type Message struct {
@@ -21,6 +29,10 @@ type Message struct {
 	FileName string  `json:"f"`
 	Bytes    []byte  `json:"b"`
 	Size     uint64  `json:"s"`
+}
+
+type Notify struct {
+	Status byte
 }
 
 func (m *Message) GC() {
@@ -63,4 +75,43 @@ func Decode(b []byte) (m *Message, err error) {
 	m = msgPool.Get().(*Message)
 	err = json.Unmarshal(b, &m)
 	return
+}
+
+func NewNotifyMsg(fileName string, status Status) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgNotify
+	m.Bytes = []byte{byte(status)}
+	m.FileName = fileName
+	return m
+}
+
+func NewHeadMsg(fileName string) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgHead
+	m.FileName = fileName
+	return m
+}
+
+func NewFileMsg(fileName string, buf []byte) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgFile
+	m.FileName = fileName
+	m.Bytes = buf
+	return m
+}
+
+func NewEndMsg(fileName string, size uint64) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgEnd
+	m.FileName = fileName
+	m.Size = size
+	return m
+}
+
+func NewCloseMsg(fileName string, status Status) *Message {
+	m := msgPool.Get().(*Message)
+	m.MsgType = MsgClose
+	m.Bytes = []byte{byte(status)}
+	m.FileName = fileName
+	return m
 }
