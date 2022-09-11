@@ -59,7 +59,7 @@ func (t *TcpCon) sendMsg() {
 			binary.BigEndian.PutUint32(buf[4:8], uint32(dataLen))
 			copy(buf[8:], []byte(data))
 
-			_, err = t.conn.Write(buf[:len(MAGIC_BYTES)+4+dataLen])
+			_, err = t.conn.Write(buf[:8+dataLen])
 			if err != nil {
 				return
 			}
@@ -77,6 +77,7 @@ func (t *TcpCon) readMsg() {
 		if err != nil {
 			fmt.Printf("found mistake: %s \n", err)
 		}
+		t.stop = true
 	}()
 
 	header := make([]byte, 4)
@@ -86,8 +87,12 @@ func (t *TcpCon) readMsg() {
 		// read until we get 4 bytes for the magic
 		_, err = io.ReadFull(t.conn, header)
 		if err != nil {
-			err = fmt.Errorf("initial read error: %v \n", err)
-			return
+			if err != io.EOF {
+				err = fmt.Errorf("initial read error: %v \n", err)
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+			continue
 		}
 
 		if !bytes.Equal(header, MAGIC_BYTES) {

@@ -30,6 +30,12 @@ var serverCmd = &cli.Command{
 			Usage: "specify a listening port",
 			Value: "0.0.0.0:9988",
 		},
+		&cli.StringFlag{
+			Name:    "dir",
+			Value:   "./data",
+			Aliases: []string{"d"},
+			Usage:   "upload dir or save dir",
+		},
 	},
 	Action: func(ctx *cli.Context) error {
 		network := ctx.String("network")

@@ -2,8 +2,6 @@ package msg
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
 )
 
 type MsgType byte
@@ -48,26 +46,8 @@ func (m *Message) reset() {
 }
 
 func (m *Message) String() string {
-	builder := builderPool.Get().(*strings.Builder)
-	builder.Reset()
-	defer builderPool.Put(builder)
-
-	builder.WriteString("{")
-
-	builder.WriteString(`"t":`)
-	builder.WriteString(strconv.Itoa(int(m.MsgType)) + ",")
-
-	builder.WriteString(`"f":`)
-	builder.WriteString(`"` + m.FileName + `",`)
-
-	builder.WriteString(`"b":`)
-	builder.WriteString(`"` + string(m.Bytes) + `",`)
-
-	builder.WriteString(`"s":`)
-	builder.WriteString(strconv.Itoa(int(m.Size)))
-
-	builder.WriteString("}")
-	return builder.String()
+	bytes, _ := json.Marshal(m)
+	return string(bytes)
 }
 
 // Decode will convert from bytes
@@ -96,7 +76,8 @@ func NewFileMsg(fileName string, buf []byte) *Message {
 	m := msgPool.Get().(*Message)
 	m.MsgType = MsgFile
 	m.FileName = fileName
-	m.Bytes = buf
+	m.Bytes = make([]byte, len(buf))
+	copy(m.Bytes, buf)
 	return m
 }
 

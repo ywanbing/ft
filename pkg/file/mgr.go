@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/ywanbing/ft/pkg/msg"
@@ -23,6 +23,9 @@ type ConMgr struct {
 	conn     server.NetConn
 	dir      string
 	fileName string
+
+	// 发送的文件列表
+	sendFiles []string
 
 	// 在发送重要消息的时候，需要同步等待消息的状态，返回是否正确
 	waitNotify chan bool
@@ -68,7 +71,8 @@ func (c *ConMgr) handler() error {
 				c.fileName = GenFileName()
 			}
 
-			fs, err = os.OpenFile(path.Clean(c.dir+"/"+c.fileName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+			fmt.Println("recv head fileName is", c.fileName)
+			fs, err = os.OpenFile(filepath.Join(c.dir, c.fileName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
 			if err != nil {
 				fmt.Println("os.Create err =", err)
 				c.conn.SendMsg(msg.NewNotifyMsg(c.fileName, msg.Status_Err))
@@ -80,14 +84,14 @@ func (c *ConMgr) handler() error {
 		case msg.MsgFile:
 			if fs == nil {
 				fmt.Println(c.fileName, "file is not open !")
-				c.conn.SendMsg(msg.NewNotifyMsg(c.fileName, msg.Status_Err))
+				c.conn.SendMsg(msg.NewCloseMsg(c.fileName, msg.Status_Err))
 				return nil
 			}
 			// 写入文件
 			_, err = fs.Write(m.Bytes)
 			if err != nil {
 				fmt.Println("file.Write err =", err)
-				c.conn.SendMsg(msg.NewNotifyMsg(c.fileName, msg.Status_Err))
+				c.conn.SendMsg(msg.NewCloseMsg(c.fileName, msg.Status_Err))
 				return err
 			}
 		case msg.MsgEnd:
@@ -101,9 +105,14 @@ func (c *ConMgr) handler() error {
 
 			fmt.Printf("save file %v is success \n", info.Name())
 			c.conn.SendMsg(msg.NewNotifyMsg(c.fileName, msg.Status_Ok))
+
+			fmt.Printf("close file %v is success \n", c.fileName)
+			_ = fs.Close()
+			fs = nil
 		case msg.MsgNotify:
 			c.waitNotify <- m.Bytes[0] == byte(msg.Status_Ok)
 		case msg.MsgClose:
+			fmt.Printf("revc close msg ....\n")
 			if m.Bytes[0] != byte(msg.Status_Ok) {
 				return fmt.Errorf("server an error occurred")
 			}
@@ -114,10 +123,11 @@ func (c *ConMgr) handler() error {
 	return err
 }
 
-func NewClient(conn server.NetConn, filePath string) Client {
+func NewClient(conn server.NetConn, dir string, files []string) Client {
 	return &ConMgr{
 		conn:       conn,
-		fileName:   filePath,
+		dir:        dir,
+		sendFiles:  files,
 		waitNotify: make(chan bool, 1),
 	}
 }
@@ -139,14 +149,33 @@ func (c *ConMgr) sendFile() error {
 		_ = c.conn.Close()
 	}()
 
-	file, err := os.Open(c.fileName)
+	var err error
+	for _, file := range c.sendFiles {
+		err = c.sendSingleFile(filepath.Join(c.dir, file))
+		if err != nil {
+			return err
+		}
+	}
+
+	c.conn.SendMsg(msg.NewCloseMsg(c.fileName, msg.Status_Ok))
+	return err
+}
+
+func (c *ConMgr) sendSingleFile(filePath string) error {
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Printf("open file err %v \n", err)
 		return err
 	}
+
+	defer func() {
+		if file != nil {
+			_ = file.Close()
+		}
+	}()
 	fileInfo, _ := file.Stat()
 
-	fmt.Println("client ready to write ...")
+	fmt.Println("client ready to write ", filePath)
 	m := msg.NewHeadMsg(fileInfo.Name())
 	// 发送文件信息
 	c.conn.SendMsg(m)
@@ -163,8 +192,12 @@ func (c *ConMgr) sendFile() error {
 	}
 
 	// 发送文件数据
-	readBuf := make([]byte, 60*1024)
+	readBuf := make([]byte, 40*1024)
 	for {
+		if c.stop {
+			return err
+		}
+
 		n, err := file.Read(readBuf)
 		if err != nil && err != io.EOF {
 			return err
@@ -190,7 +223,6 @@ func (c *ConMgr) sendFile() error {
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	fmt.Println("client send file success...")
-	c.conn.SendMsg(msg.NewCloseMsg(c.fileName, msg.Status_Ok))
-	return err
+	fmt.Println("client send " + filePath + " file success...")
+	return nil
 }

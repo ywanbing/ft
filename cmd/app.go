@@ -14,16 +14,8 @@ func registerCommand(cmd *cli.Command) {
 // NewApp 创建一个 cli APP，并组装所有的命令。
 func NewApp() *cli.App {
 	app := &cli.App{
-		Name:  "ft",
-		Usage: "big file transfer, support various network protocols",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "dir",
-				Value:   "./data",
-				Aliases: []string{"d"},
-				Usage:   "upload dir or save dir",
-			},
-		},
+		Name:                 "ft",
+		Usage:                "big file transfer, support various network protocols",
 		Commands:             commands,
 		EnableBashCompletion: true,
 	}
