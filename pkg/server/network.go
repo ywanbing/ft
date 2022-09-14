@@ -10,4 +10,5 @@ type NetConn interface {
 	GetMsg() (*msg.Message, bool)
 	SendMsg(m *msg.Message)
 	Close() error
+	IsClose() bool
 }

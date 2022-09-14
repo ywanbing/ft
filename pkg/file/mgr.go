@@ -29,13 +29,14 @@ type ConMgr struct {
 
 	// 在发送重要消息的时候，需要同步等待消息的状态，返回是否正确
 	waitNotify chan bool
-	stop       bool
+	stop       chan struct{}
 }
 
 func NewServer(conn server.NetConn, dir string) Server {
 	return &ConMgr{
 		conn: conn,
 		dir:  dir,
+		stop: make(chan struct{}),
 	}
 }
 
@@ -53,12 +54,14 @@ func (c *ConMgr) handler() error {
 		if fs != nil {
 			_ = fs.Close()
 		}
-		c.stop = true
 	}()
 
-	for !c.stop {
+	for !c.conn.IsClose() {
 		m, ok := c.conn.GetMsg()
 		if !ok {
+			return fmt.Errorf("close by connect")
+		}
+		if m == nil {
 			continue
 		}
 
@@ -129,6 +132,7 @@ func NewClient(conn server.NetConn, dir string, files []string) Client {
 		dir:        dir,
 		sendFiles:  files,
 		waitNotify: make(chan bool, 1),
+		stop:       make(chan struct{}),
 	}
 }
 
@@ -145,7 +149,6 @@ func (c *ConMgr) SendFile() error {
 
 func (c *ConMgr) sendFile() error {
 	defer func() {
-		c.stop = true
 		_ = c.conn.Close()
 	}()
 
@@ -191,12 +194,9 @@ func (c *ConMgr) sendSingleFile(filePath string) error {
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	// 发送文件数据
-	readBuf := make([]byte, 40*1024)
-	for {
-		if c.stop {
-			return err
-		}
+	for !c.conn.IsClose() {
+		// 发送文件数据
+		readBuf := msg.BytesPool.Get().([]byte)
 
 		n, err := file.Read(readBuf)
 		if err != nil && err != io.EOF {

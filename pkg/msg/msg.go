@@ -34,6 +34,9 @@ type Notify struct {
 }
 
 func (m *Message) GC() {
+	if m.MsgType == MsgFile {
+		BytesPool.Put(m.Bytes[:cap(m.Bytes)])
+	}
 	m.reset()
 	msgPool.Put(m)
 }
@@ -76,8 +79,9 @@ func NewFileMsg(fileName string, buf []byte) *Message {
 	m := msgPool.Get().(*Message)
 	m.MsgType = MsgFile
 	m.FileName = fileName
-	m.Bytes = make([]byte, len(buf))
-	copy(m.Bytes, buf)
+	m.Bytes = buf
+	// m.Bytes = make([]byte, len(buf))
+	// copy(m.Bytes, buf)
 	return m
 }
 

@@ -64,9 +64,11 @@ var serverCmd = &cli.Command{
 					return err
 				}
 
+				fmt.Println("start a connection:", acceptTCP.RemoteAddr())
 				tcpCon := server.NewTcp(acceptTCP)
 				srv := file.NewServer(tcpCon, dir)
 				_ = srv.Start()
+				fmt.Println("end a connection:", acceptTCP.RemoteAddr())
 			}
 		case "udp":
 		default:

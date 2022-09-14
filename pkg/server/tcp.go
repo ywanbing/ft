@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/ywanbing/ft/pkg/msg"
@@ -17,14 +18,17 @@ type TcpCon struct {
 	recv chan *msg.Message
 	send chan *msg.Message
 
-	stop bool
+	onceStop *sync.Once
+	stop     chan struct{}
 }
 
 func NewTcp(conn *net.TCPConn) *TcpCon {
 	return &TcpCon{
-		conn: conn,
-		recv: make(chan *msg.Message, 1024),
-		send: make(chan *msg.Message, 1024),
+		conn:     conn,
+		recv:     make(chan *msg.Message, 1024),
+		send:     make(chan *msg.Message, 1024),
+		onceStop: &sync.Once{},
+		stop:     make(chan struct{}),
 	}
 }
 
@@ -34,20 +38,19 @@ func (t *TcpCon) HandlerLoop() {
 }
 
 func (t *TcpCon) sendMsg() {
-	defer t.conn.Close()
-
 	var err error
 	defer func() {
 		if err != nil {
 			fmt.Printf("found mistake: %s \n", err)
 		}
+		_ = t.Close()
 	}()
 
 	buf := make([]byte, 64*1024)
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
-	for !t.stop {
+	for !t.IsClose() {
 		select {
 		case m := <-t.send:
 			data := m.String()
@@ -64,20 +67,18 @@ func (t *TcpCon) sendMsg() {
 				return
 			}
 		case <-ticker.C:
-			fmt.Println("wait send msg ... ")
+
 		}
 	}
 }
 
 func (t *TcpCon) readMsg() {
-	defer t.conn.Close()
-
 	var err error
 	defer func() {
 		if err != nil {
 			fmt.Printf("found mistake: %s \n", err)
 		}
-		t.stop = true
+		_ = t.Close()
 	}()
 
 	header := make([]byte, 4)
@@ -134,10 +135,10 @@ func (t *TcpCon) GetMsg() (*msg.Message, bool) {
 	timer := time.NewTimer(5 * time.Second)
 	defer timer.Stop()
 	select {
-	case m := <-t.recv:
-		return m, true
+	case m, ok := <-t.recv:
+		return m, ok
 	case <-timer.C:
-		return nil, false
+		return nil, true
 	}
 }
 
@@ -146,8 +147,21 @@ func (t *TcpCon) SendMsg(m *msg.Message) {
 }
 
 func (t *TcpCon) Close() error {
-	t.stop = true
+	t.onceStop.Do(func() {
+		fmt.Println("close a connect, addr: ", t.conn.RemoteAddr())
+		_ = t.conn.Close()
+		close(t.stop)
+	})
 	return nil
+}
+
+func (t *TcpCon) IsClose() bool {
+	select {
+	case <-t.stop:
+		return true
+	default:
+		return false
+	}
 }
 
 var _ = NetConn(&TcpCon{})

@@ -10,4 +10,10 @@ var (
 			return &Message{}
 		},
 	}
+
+	BytesPool = sync.Pool{
+		New: func() any {
+			return make([]byte, 40*1024)
+		},
+	}
 )
